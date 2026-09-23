@@ -6,6 +6,8 @@ Servicio backend de alto rendimiento para el **Sistema de Gestión de Franquicia
 
 ## 🏛️ Arquitectura del Sistema (Clean Architecture)
 
+![Diagrama de Arquitectura Clean Architecture](./architecture_diagram.jpg)
+
 El código se organiza desacoplando de manera estricta el dominio de negocio de los detalles de infraestructura, frameworks y persistencia:
 
 ```

@@ -1,237 +1,251 @@
-# 🏬 Sistema de Gestión de Franquicias (EPAM Challenge)
+# 🏬 Franquicia Backend - API REST de Gestión de Franquicias
 
-Solución integral y robusta desarrollada bajo los principios de **Clean Architecture (Arquitectura Hexagonal)** y principios **SOLID**, implementando una API REST en **Java 27** con **Spring Boot**, persistencia optimizada en **MongoDB**, y una interfaz moderna en **Angular (TypeScript)**.
+Servicio backend de alto rendimiento para el **Sistema de Gestión de Franquicias (EPAM Challenge)**, desarrollado bajo principios de **Clean Architecture (Arquitectura Hexagonal)** y principios **SOLID**, implementado en **Java 21** con **Spring Boot 3.4.3**, persistencia en **MongoDB**, documentación interactiva con **Swagger/OpenAPI**, **Lombok** para entidades y suite completa de pruebas unitarias e integración en **JUnit 5**.
 
 ---
 
 ## 🏛️ Arquitectura del Sistema (Clean Architecture)
 
-El proyecto organiza el código separando estrictamente el dominio de cualquier infraestructura o framework tecnológico:
+![Diagrama de Arquitectura Clean Architecture](./architecture_diagram.jpg)
+
+El código se organiza desacoplando de manera estricta el dominio de negocio de los detalles de infraestructura, frameworks y persistencia:
 
 ```
-backend/src/main/java/com/epam/franquicias/
-├── domain/                                  # CAPA DOMINIO (Reglas de negocio puras, POJOs sin dependencias de Spring/Mongo)
-│   ├── model/
-│   │   ├── Franchise.java                   # Aggregate Root: Invariantes y lógica de negocio
+franquicia_backend/src/main/java/com/epam/franquicias/
+├── domain/                                  # 1. CAPA DOMINIO (Núcleo de Negocio Puro)
+│   ├── model/                               # Entidades y Value Objects (POJOs sin dependencias)
+│   │   ├── Franchise.java                   # Agregado Raíz: Invariantes y reglas de negocio
 │   │   ├── Branch.java                      # Entidad Sucursal con catálogo de productos
-│   │   ├── Product.java                     # Entidad Producto con validación de stock >= 0
+│   │   ├── Product.java                     # Entidad Producto con validación stock >= 0
 │   │   └── BranchTopProduct.java            # Record/Value Object para el Requerimiento 7
-│   ├── exception/                           # Excepciones semánticas de dominio (EntityNotFound, DuplicateEntity, InvalidStock)
-│   └── port/out/
-│       └── FranchiseRepositoryPort.java     # Puerto de salida (contrato para persistencia)
+│   ├── exception/                           # Excepciones semánticas del dominio
+│   │   ├── DomainException.java             # Base de excepciones de negocio
+│   │   ├── EntityNotFoundException.java     # HTTP 404
+│   │   ├── DuplicateEntityException.java    # HTTP 409
+│   │   └── InvalidStockException.java       # HTTP 400
+│   └── repository/                          # Puertos de salida (Interfaces)
+│       └── FranchiseRepository.java         # Contrato para persistencia
 │
-├── application/                             # CAPA APLICACIÓN (Casos de Uso / Interactors)
-│   ├── port/in/                             # Puertos de entrada (Interfaces de Casos de Uso)
-│   │   ├── CreateFranchiseUseCase.java
-│   │   ├── AddBranchUseCase.java
-│   │   ├── AddProductUseCase.java
-│   │   ├── DeleteProductUseCase.java
-│   │   ├── UpdateStockUseCase.java
-│   │   ├── GetTopStockProductsUseCase.java  # Requerimiento 7
-│   │   ├── GetFranchiseUseCase.java
-│   │   └── UpdateNamesUseCase.java
-│   └── service/                             # Servicios de aplicación que implementan los casos de uso
-│       ├── CreateFranchiseService.java
-│       ├── AddBranchService.java
-│       ├── AddProductService.java
-│       ├── DeleteProductService.java
-│       ├── UpdateStockService.java
-│       ├── GetTopStockProductsService.java
-│       ├── GetFranchiseService.java
-│       └── UpdateNamesService.java
+├── application/                             # 2. CAPA APLICACIÓN (Casos de Uso)
+│   ├── mapper/                              # Mapeo entre Dominio y DTOs
+│   │   └── FranchiseWebMapper.java
+│   └── usecase/                             # Puertos de entrada (Interfaces de Casos de Uso)
+│       ├── CreateFranchiseUseCase.java
+│       ├── AddBranchUseCase.java
+│       ├── AddProductUseCase.java
+│       ├── DeleteProductUseCase.java
+│       ├── UpdateStockUseCase.java
+│       ├── GetTopStockProductsUseCase.java  # Requerimiento 7
+│       ├── GetFranchiseUseCase.java
+│       ├── UpdateNamesUseCase.java
+│       └── service/                         # Servicios que implementan los casos de uso
+│           ├── CreateFranchiseServiceImpl.java
+│           ├── AddBranchServiceImpl.java
+│           ├── AddProductServiceImpl.java
+│           ├── DeleteProductServiceImpl.java
+│           ├── UpdateStockServiceImpl.java
+│           ├── GetTopStockProductsServiceImpl.java
+│           ├── GetFranchiseServiceImpl.java
+│           └── UpdateNamesServiceImpl.java
 │
-└── infrastructure/                          # CAPA INFRAESTRUCTURA (Adaptadores externos y Frameworks)
-    ├── adapter/in/web/                      # Inbound Adapter: REST API (Spring Web MVC)
-    │   ├── FranchiseController.java         # Controlador REST y anotaciones OpenAPI/Swagger
-    │   ├── dto/                             # Records para requests y responses
-    │   ├── mapper/FranchiseWebMapper.java
-    │   └── error/GlobalExceptionHandler.java# Manejador centralizado de errores y códigos HTTP
-    ├── adapter/out/persistence/mongodb/     # Outbound Adapter: MongoDB
-    │   ├── document/                        # Documentos Mongo con colecciones e índices
-    │   ├── repository/                      # SpringDataMongoFranchiseRepository
-    │   ├── mapper/FranchiseMongoMapper.java
-    │   └── MongoFranchiseRepositoryAdapter.java # Implementa FranchiseRepositoryPort
-    └── config/
-        ├── BeanConfiguration.java           # Inyección de dependencias desacoplada (sin @Service en la app)
-        ├── OpenApiConfig.java               # Configuración de Swagger UI
-        └── MongoConfig.java
+├── infrastructure/                          # 3. CAPA INFRAESTRUCTURA (Adaptadores externos)
+│   ├── config/                              # Configuraciones Spring
+│   │   ├── BeanConfiguration.java           # Inyección de dependencias desacoplada
+│   │   ├── OpenApiConfig.java               # Configuración OpenAPI 3.0 / Swagger
+│   │   └── CorsConfig.java                  # Habilitación de CORS para frontends
+│   └── persistence/                         # Persistencia en MongoDB
+│       ├── entities/                        # Documentos Mongo con Lombok
+│       │   ├── FranchiseDocument.java       # @Document con @Data, @Builder
+│       │   ├── BranchDocument.java          # @Data, @Builder
+│       │   └── ProductDocument.java         # @Data, @Builder
+│       └── repositories/                    # Repositorio Spring Data y Adaptador
+│           ├── SpringDataMongoFranchiseRepository.java
+│           ├── FranchiseMongoMapper.java    # Mapper Dominio <-> Documentos Mongo
+│           └── MongoFranchiseRepositoryAdapter.java # Implementa FranchiseRepository
+│
+└── presentation/                            # 4. CAPA PRESENTACIÓN (API REST)
+    ├── controllers/
+    │   └── FranchiseController.java         # Endpoints REST y anotaciones Swagger
+    ├── exception/
+    │   └── GlobalExceptionHandler.java      # Manejador centralizado de errores HTTP
+    └── dto/                                 # Contratos inmutables basados en Java Records
+        ├── request/                         # Request DTOs con validaciones Bean Validation
+        │   ├── CreateFranchiseRequest.java  # record
+        │   ├── AddBranchRequest.java        # record
+        │   ├── AddProductRequest.java       # record
+        │   ├── UpdateStockRequest.java      # record
+        │   └── UpdateNameRequest.java       # record
+        └── response/                        # Response DTOs
+            ├── FranchiseResponse.java       # record
+            ├── BranchResponse.java          # record
+            ├── ProductResponse.java         # record
+            ├── BranchTopProductResponse.java# record
+            └── ErrorResponse.java           # record
 ```
 
 ---
 
-## 🎯 Principios SOLID Aplicados
+## 🛠️ Stack Tecnológico
 
-1. **S - Single Responsibility Principle (SRP)**:
-   Cada caso de uso (`CreateFranchiseService`, `UpdateStockService`, etc.) resuelve una única operación del sistema. El controlador solo atiende el protocolo HTTP y el repositorio solo atiende la persistencia.
-2. **O - Open/Closed Principle (OCP)**:
-   El núcleo de negocio está cerrado a modificaciones pero abierto a extensiones mediante puertos (`FranchiseRepositoryPort`, `GetTopStockProductsUseCase`). Si se sustituye MongoDB por PostgreSQL o DynamoDB, ninguna clase de dominio o aplicación se modifica.
-3. **L - Liskov Substitution Principle (LSP)**:
-   Cualquier implementación del puerto `FranchiseRepositoryPort` respeta íntegramente el contrato sin arrojar excepciones no contempladas.
-4. **I - Interface Segregation Principle (ISP)**:
-   Interfaces específicas por caso de uso (`AddBranchUseCase`, `UpdateStockUseCase`, `DeleteProductUseCase`) evitando interfaces monolíticas "fat".
-5. **D - Dependency Inversion Principle (DIP)**:
-   Los módulos de alto nivel (Dominio y Casos de Uso) no dependen de detalles de bajo nivel (MongoDB, Spring, HTTP). Los adaptadores de infraestructura dependen de las abstracciones definidas en el dominio.
-
----
-
-## 📊 Requerimiento 7: Producto con Mayor Stock por Sucursal
-
-El requerimiento solicita:
-> *"Endpoint analítico que permita consultar cuál es el producto con mayor stock por cada sucursal para una franquicia puntual. Debe retornar un listado estructurado que indique claramente el producto y la sucursal a la que pertenece."*
-
-### Implementación y Optimización
-- **En el Dominio**: La entidad agregada `Franchise` cuenta con el método `getTopStockProductsByBranch()` que calcula deterministamente en memoria (utilizando `Stream.max(Comparator.comparingInt(Product::getStock))`) el producto líder por cada sucursal.
-- **Formato Estructurado de Retorno**:
-  ```json
-  [
-    {
-      "branchId": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-      "branchName": "Sucursal Centro",
-      "topProduct": {
-        "id": "a3b8c9d0-1e2f-3a4b-5c6d-7e8f9a0b1c2d",
-        "name": "Capuchino Vainilla",
-        "stock": 140
-      }
-    },
-    {
-      "branchId": "c4d5e6f7-8a9b-0c1d-2e3f-4a5b6c7d8e9f",
-      "branchName": "Sucursal Norte",
-      "topProduct": {
-        "id": "e9f0a1b2-3c4d-5e6f-7a8b-9c0d1e2f3a4b",
-        "name": "Café Americano",
-        "stock": 85
-      }
-    }
-  ]
-  ```
+- **Java 21 (LTS)**: Records, Pattern Matching, Streams.
+- **Spring Boot 3.4.3**: `spring-boot-starter-web`, `spring-boot-starter-validation`, `spring-boot-starter-actuator`.
+- **Spring Data MongoDB**: Modelado NoSQL de agregados jerárquicos e índices únicos.
+- **Lombok**: `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor` en entidades de persistencia.
+- **Springdoc OpenAPI (Swagger UI) 2.8.5**: Documentación interactiva de la API.
+- **JUnit 5 (Jupiter) & Mockito**: Suite de 26 pruebas unitarias e integración.
+- **Docker & Docker Compose**: Contenedores multi-stage con comprobaciones de salud activas (`healthchecks`).
 
 ---
 
 ## 🚀 Catálogo de Endpoints REST
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| `POST` | `/api/v1/franchises` | Crear una nueva franquicia |
-| `GET` | `/api/v1/franchises` | Listar todas las franquicias |
-| `GET` | `/api/v1/franchises/{franchiseId}` | Obtener detalle de franquicia por ID |
-| `POST` | `/api/v1/franchises/{franchiseId}/branches` | Agregar sucursal a una franquicia |
-| `POST` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products` | Agregar producto con stock a una sucursal |
-| `DELETE` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products/{productId}` | Eliminar producto de una sucursal |
-| `PATCH` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products/{productId}/stock` | Modificar stock de un producto |
-| `GET` | `/api/v1/franchises/{franchiseId}/top-stock-products` | **Requerimiento 7**: Producto con mayor stock por sucursal |
-| `PATCH` | `/api/v1/franchises/{franchiseId}/name` | Modificar nombre de una franquicia |
-| `PATCH` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/name` | Modificar nombre de una sucursal |
-| `PATCH` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products/{productId}/name` | Modificar nombre de un producto |
+| Método | Ruta | Descripción | Código Éxito |
+|---|---|---|---|
+| `POST` | `/api/v1/franchises` | Registrar una nueva franquicia | `201 Created` |
+| `GET` | `/api/v1/franchises` | Listar todas las franquicias registradas | `200 OK` |
+| `GET` | `/api/v1/franchises/{franchiseId}` | Obtener detalle completo de una franquicia por ID | `200 OK` |
+| `POST` | `/api/v1/franchises/{franchiseId}/branches` | Agregar una sucursal a la franquicia | `201 Created` |
+| `POST` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products` | Agregar un producto con stock a una sucursal | `201 Created` |
+| `DELETE` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products/{productId}` | Eliminar un producto de una sucursal | `204 No Content` |
+| `PATCH` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products/{productId}/stock` | Actualizar el stock disponible de un producto | `200 OK` |
+| `GET` | `/api/v1/franchises/{franchiseId}/top-stock-products` | **Requerimiento 7**: Producto con mayor stock por sucursal | `200 OK` |
+| `PATCH` | `/api/v1/franchises/{franchiseId}/name` | Modificar el nombre de una franquicia | `200 OK` |
+| `PATCH` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/name` | Modificar el nombre de una sucursal | `200 OK` |
+| `PATCH` | `/api/v1/franchises/{franchiseId}/branches/{branchId}/products/{productId}/name` | Modificar el nombre de un producto | `200 OK` |
+
+---
+
+## 📊 Requerimiento 7: Producto con Mayor Stock por Sucursal
+
+Endpoint analítico que identifica de forma determinista el producto líder en existencias para cada sucursal de una franquicia dada.
+
+### Solicitud:
+```http
+GET /api/v1/franchises/f1234567-89ab-cdef-0123-456789abcdef/top-stock-products
+```
+
+### Respuesta Estructurada (`200 OK`):
+```json
+[
+  {
+    "branchId": "b1111111-2222-3333-4444-555555555555",
+    "branchName": "Sucursal Norte",
+    "topProduct": {
+      "id": "p9999999-8888-7777-6666-555555555555",
+      "name": "Café Colombiano Premium",
+      "stock": 250
+    }
+  },
+  {
+    "branchId": "b2222222-3333-4444-5555-666666666666",
+    "branchName": "Sucursal Centro",
+    "topProduct": {
+      "id": "p7777777-6666-5555-4444-333333333333",
+      "name": "Espresso Doble",
+      "stock": 180
+    }
+  },
+  {
+    "branchId": "b3333333-4444-5555-6666-777777777777",
+    "branchName": "Sucursal Nueva (Sin inventario)",
+    "topProduct": null
+  }
+]
+```
 
 ---
 
 ## 💻 Ejecución del Proyecto
 
-### Opción A: Despliegue con Docker Compose (Recomendado)
-Para iniciar MongoDB, Backend y Frontend con un solo comando:
+### Opción 1: Despliegue con Docker Compose (Recomendado)
+
+Desde la carpeta `franquicia_backend/`:
 ```bash
 docker compose up --build -d
 ```
-- **Frontend**: [http://localhost:4200](http://localhost:4200)
-- **Backend API**: [http://localhost:8080](http://localhost:8080)
-- **Swagger / OpenAPI**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
-- **MongoDB**: `localhost:27017`
 
-### Opción B: Ejecución Local
+Este comando levanta:
+- **MongoDB 7.0**: En el puerto mapeado `27018:27017` con volumen persistente y healthcheck activo.
+- **Backend API**: En el puerto mapeado `8781:8080` con arranque condicionado a que la base de datos esté lista (`service_healthy`).
 
-#### 1. Iniciar MongoDB
+Para verificar el estado de los contenedores:
 ```bash
-docker run -d -p 27017:27017 --name mongo-local mongo:7.0
+docker compose ps
 ```
 
-#### 2. Backend (Spring Boot & Clean Architecture)
-Puedes ejecutar tanto `backend/` como el módulo reestructurado `franquicia_backend/`:
-```bash
-# Opción franquicia_backend (Estructura Clean Architecture con Lombok y JUnit 5):
-cd franquicia_backend
-mvn clean test        # Ejecuta la suite de 26 pruebas JUnit 5
-mvn spring-boot:run   # Inicia el backend en el puerto 8080
+Acceso a servicios:
 
-# O el módulo backend original:
-cd backend
+#### Entorno Producción (`138.199.212.52`):
+- **API REST**: [http://138.199.212.52:8781/api/v1/franchises](http://138.199.212.52:8781/api/v1/franchises)
+- **Swagger UI**: [http://138.199.212.52:8781/swagger-ui.html](http://138.199.212.52:8781/swagger-ui.html)
+- **OpenAPI Docs**: [http://138.199.212.52:8781/api-docs](http://138.199.212.52:8781/api-docs)
+- **Actuator Health**: [http://138.199.212.52:8781/actuator/health](http://138.199.212.52:8781/actuator/health)
+
+#### Entorno Local (`localhost`):
+- **API REST**: [http://localhost:8781/api/v1/franchises](http://localhost:8781/api/v1/franchises)
+- **Swagger UI**: [http://localhost:8781/swagger-ui.html](http://localhost:8781/swagger-ui.html)
+- **Actuator Health**: [http://localhost:8781/actuator/health](http://localhost:8781/actuator/health)
+
+Detener el entorno:
+```bash
+docker compose down -v
+```
+
+---
+
+### Opción 2: Ejecución Local
+
+#### 1. Iniciar MongoDB localmente
+```bash
+docker run -d -p 27018:27017 --name mongo-local mongo:7.0
+```
+
+#### 2. Compilar y ejecutar con Maven
+```bash
 mvn clean test
 mvn spring-boot:run
 ```
 
-#### 3. Frontend (Angular 19 / TypeScript)
-```bash
-cd frontend
-npm install
-npm start             # Inicia el servidor de desarrollo en http://localhost:4200
-```
-
 ---
 
-## 🧪 Pruebas Automatizadas
+## 🧪 Pruebas Automatizadas con JUnit 5
 
-El backend incluye pruebas exhaustivas que cubren:
-- **Pruebas de Dominio**: Creación de franquicias, sucursales y productos, invariantes de stock no negativo, nombres duplicados, y cálculo del producto con mayor stock (`FranchiseTest`).
-- **Pruebas de Aplicación**: Aislamiento de casos de uso y orquestación con puertos de repositorio (`FranchiseServiceTest`).
-- **Pruebas de Controladores**: Verificación de contratos HTTP, códigos de respuesta (200, 201, 204, 400, 404, 409) y serialización JSON (`FranchiseControllerTest`).
+El proyecto cuenta con una cobertura integral de **26 pruebas automatizadas** que validan todas las capas de la arquitectura:
+
+1. **Pruebas de Dominio (`FranchiseTest.java` - 9 tests)**:
+   - Invariantes de nombre obligatorio y no vacío.
+   - Restricción de stock no negativo (`InvalidStockException`).
+   - Unicidad de nombres de sucursales y productos por contexto (`DuplicateEntityException`).
+   - Cálculo determinista del producto con mayor stock por sucursal (Requerimiento 7), incluyendo sucursales sin productos.
+2. **Pruebas de Aplicación (`FranchiseServiceTest.java` - 8 tests)**:
+   - Aislamiento y orquestación de cada caso de uso mediante mocks de `FranchiseRepository`.
+   - Verificación de guardados y manejo de entidades no encontradas (`EntityNotFoundException`).
+3. **Pruebas de Presentación (`FranchiseControllerTest.java` - 6 tests)**:
+   - Pruebas web con `MockMvc` de todos los endpoints principales.
+   - Validación de códigos HTTP (`200 OK`, `201 Created`, `204 No Content`, `Location Header`).
+4. **Pruebas de Entidades Lombok y Persistencia (`FranchiseEntityLombokTest.java` - 3 tests)**:
+   - Verificación de constructores, `@Builder`, `@Data` de Lombok en `ProductDocument`, `BranchDocument` y `FranchiseDocument`.
+   - Mapeo bidireccional fiel entre el Dominio y los Documentos de MongoDB.
 
 Para ejecutar todas las pruebas:
 ```bash
-cd backend
 mvn test
 ```
-Resultados:
+
+Salida esperada:
 ```
-Tests run: 23, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
+[INFO] Running com.epam.franquicias.application.FranchiseServiceTest
+[INFO] Tests run: 8, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running com.epam.franquicias.domain.FranchiseTest
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running com.epam.franquicias.infrastructure.persistence.FranchiseEntityLombokTest
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Running com.epam.franquicias.presentation.FranchiseControllerTest
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] Results:
+[INFO] Tests run: 26, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
 ```
 
----
-
-## 🔄 Pipeline de Integración y Entrega Continua (CI/CD)
-
-El repositorio cuenta con un pipeline automatizado en **GitHub Actions** (`.github/workflows/ci.yml`) que valida la integridad de cada cambio en ramas principales y Pull Requests:
-
-1. **Backend CI (`backend-ci`)**:
-   - Compilación con JDK 21 (Eclipse Temurin) y cache de artefactos Maven.
-   - Ejecución de los 23 tests de Dominio, Aplicación y Controladores REST (`mvn -B clean verify`).
-2. **Frontend CI (`frontend-ci`)**:
-   - Entorno Node.js 22 con cache de dependencias NPM.
-   - Instalación determinista (`npm ci`) y compilación del bundle de producción de Angular (`ng build --configuration production`).
-3. **Docker Verification (`docker-verification`)**:
-   - Validación estricta de la configuración `docker compose config`.
-   - Compilación de las imágenes Docker de Backend y Frontend mediante Docker Buildx.
-
----
-
-## ☁️ Despliegue en la Nube con Terraform (AWS ECS Fargate)
-
-La infraestructura como código ubicada en la carpeta `terraform/` aprovisiona una arquitectura escalable, segura y altamente disponible en **Amazon Web Services**:
-
-### Componentes de la Infraestructura
-- **VPC Multi-AZ**: 2 subredes públicas (ALB, NAT Gateway) y 2 subredes privadas (servicios ECS).
-- **Application Load Balancer (ALB)**: Punto de entrada público que enruta:
-  - Tráfico a `/api/*`, `/swagger-ui*` y `/actuator/*` hacia el contenedor Backend (puerto 8080).
-  - Tráfico por defecto `/*` hacia el frontend Angular en Nginx (puerto 80).
-- **ECS Fargate**: Contenedores serverless para Backend (Spring Boot con healthcheck en `/actuator/health`) y Frontend (Angular Nginx).
-- **Seguridad**: Grupos de seguridad que aíslan el Backend para aceptar tráfico únicamente desde el balanceador de carga.
-- **Observabilidad**: Logs centralizados en AWS CloudWatch con métricas de Container Insights.
-
-### Pasos para el Despliegue
-1. Configurar credenciales de AWS:
-   ```bash
-   aws configure
-   ```
-2. Crear archivo de variables a partir de la plantilla:
-   ```bash
-   cd terraform
-   cp terraform.tfvars.example terraform.tfvars
-   # Editar terraform.tfvars con la URI de MongoDB y referencias de imagen en ECR
-   ```
-3. Inicializar y aplicar con Terraform:
-   ```bash
-   terraform init
-   terraform plan
-   terraform apply -auto-approve
-   ```
-4. Al finalizar, Terraform mostrará el `alb_dns_name` con el que se puede acceder inmediatamente a la plataforma.
 

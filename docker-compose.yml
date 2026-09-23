@@ -1,0 +1,64 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: franquicias-mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - franquicias-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: franquicias-backend
+    ports:
+      - "8781:8080"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/franquicias_db
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - franquicias-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q 'UP' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: franquicias-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - franquicias-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mongo_data:
+
+networks:
+  franquicias-net:
+    driver: bridge
+

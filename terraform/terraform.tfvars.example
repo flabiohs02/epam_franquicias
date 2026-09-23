@@ -1,0 +1,25 @@
+# Ejemplo de configuración para despliegue en AWS con Terraform
+aws_region   = "us-east-1"
+environment  = "production"
+project_name = "franquicias"
+
+# Subredes (deben pertenecer al bloque CIDR 10.0.0.0/16)
+vpc_cidr              = "10.0.0.0/16"
+public_subnet_cidrs   = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs  = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# Imágenes Docker (previamente subidas a Amazon ECR)
+backend_image  = "123456789012.dkr.ecr.us-east-1.amazonaws.com/franquicias-backend:latest"
+frontend_image = "123456789012.dkr.ecr.us-east-1.amazonaws.com/franquicias-frontend:latest"
+
+# Recursos asignados a contenedores Fargate
+backend_cpu     = 512
+backend_memory  = 1024
+frontend_cpu    = 256
+frontend_memory = 512
+
+backend_desired_count  = 2
+frontend_desired_count = 2
+
+# Cadena de conexión a base de datos (MongoDB Atlas / AWS DocumentDB)
+mongodb_uri = "mongodb+srv://admin:TuPasswordSeguro@cluster0.mongodb.net/franquicias_db?retryWrites=true&w=majority"

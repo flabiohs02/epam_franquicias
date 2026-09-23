@@ -1,0 +1,329 @@
+<div class="app-layout">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-logo">🏬</div>
+        <div>
+          <h1 class="brand-title">Gestión de Franquicias</h1>
+          <p class="brand-subtitle">Arquitectura Limpia &bull; Java 27 &bull; Spring Boot &bull; MongoDB</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" (click)="openCreateFranchise()">
+          + Nueva Franquicia
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-button" [class.active]="activeTab === 'management'" (click)="activeTab = 'management'">
+        🏢 Gestión Operativa
+      </button>
+      <button class="tab-button" [class.active]="activeTab === 'analytics'" (click)="activeTab = 'analytics'; loadAnalytics()">
+        👑 Mayor Stock por Sucursal (Punto 7)
+      </button>
+    </nav>
+  </header>
+
+  <!-- Alerts -->
+  <div class="alerts-container">
+    <div *ngIf="successMessage" class="alert alert-success">
+      <span>✅ {{ successMessage }}</span>
+      <button class="close-alert" (click)="successMessage = null">&times;</button>
+    </div>
+    <div *ngIf="errorMessage" class="alert alert-danger">
+      <span>⚠️ {{ errorMessage }}</span>
+      <button class="close-alert" (click)="errorMessage = null">&times;</button>
+    </div>
+  </div>
+
+  <!-- Loading Bar -->
+  <div *ngIf="loading" class="progress-bar-container">
+    <div class="progress-bar-indeterminate"></div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="main-container">
+
+    <!-- ================= TAB 1: GESTIÓN OPERATIVA ================= -->
+    <div *ngIf="activeTab === 'management'" class="management-grid">
+      <!-- Sidebar: Franquicias -->
+      <aside class="sidebar-card">
+        <div class="sidebar-header">
+          <h2>Franquicias ({{ franchises.length }})</h2>
+          <button class="btn btn-sm btn-outline" (click)="loadFranchises()">↻</button>
+        </div>
+
+        <div *ngIf="franchises.length === 0 && !loading" class="empty-state-card">
+          <p>No hay franquicias registradas.</p>
+          <button class="btn btn-primary btn-sm" (click)="openCreateFranchise()">Crear la primera</button>
+        </div>
+
+        <div class="franchise-list">
+          <div *ngFor="let f of franchises"
+               class="franchise-item"
+               [class.selected]="f.id === selectedFranchise?.id"
+               (click)="selectFranchise(f)">
+            <div class="item-info">
+              <span class="item-title">{{ f.name }}</span>
+              <span class="item-meta">
+                {{ f.branches.length || 0 }} sucursales &bull; {{ getTotalProductsCount(f) }} productos
+              </span>
+            </div>
+            <button class="btn-icon" title="Editar nombre" (click)="$event.stopPropagation(); openEditFranchiseName(f)">
+              ✏️
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Panel: Detalle de Franquicia -->
+      <section class="content-panel">
+        <div *ngIf="!selectedFranchise" class="no-selection-card">
+          <h3>Selecciona una franquicia en el panel izquierdo o crea una nueva.</h3>
+        </div>
+
+        <div *ngIf="selectedFranchise" class="franchise-detail-container">
+          <!-- Detail Header -->
+          <div class="panel-header">
+            <div class="title-row">
+              <h2 class="section-heading">{{ selectedFranchise.name }}</h2>
+              <button class="btn-icon" title="Editar nombre de franquicia" (click)="openEditFranchiseName(selectedFranchise)">
+                ✏️
+              </button>
+            </div>
+            <div class="header-badges">
+              <span class="stat-pill">📍 {{ selectedFranchise.branches.length }} Sucursales</span>
+              <span class="stat-pill">📦 {{ getTotalProductsCount(selectedFranchise) }} Productos</span>
+              <span class="stat-pill">🔢 Stock Total: {{ getTotalStockCount(selectedFranchise) }}</span>
+              <button class="btn btn-primary btn-sm" (click)="openAddBranch()">
+                + Agregar Sucursal
+              </button>
+            </div>
+          </div>
+
+          <!-- Branches Section -->
+          <div *ngIf="selectedFranchise.branches.length === 0" class="empty-branches-card">
+            <p>Esta franquicia no cuenta aún con sucursales registradas.</p>
+            <button class="btn btn-primary" (click)="openAddBranch()">+ Agregar Primera Sucursal</button>
+          </div>
+
+          <div class="branches-grid">
+            <div *ngFor="let branch of selectedFranchise.branches" class="branch-card">
+              <!-- Branch Header -->
+              <div class="branch-header">
+                <div class="branch-title-group">
+                  <span class="branch-icon">🏬</span>
+                  <h3 class="branch-title">{{ branch.name }}</h3>
+                  <button class="btn-icon-sm" title="Editar nombre de sucursal" (click)="openEditBranchName(branch)">
+                    ✏️
+                  </button>
+                </div>
+                <div class="branch-actions">
+                  <button class="btn btn-success btn-xs" (click)="openAddProduct(branch)">
+                    + Producto
+                  </button>
+                </div>
+              </div>
+
+              <!-- Products Table -->
+              <div class="branch-body">
+                <div *ngIf="branch.products.length === 0" class="empty-products-box">
+                  <span>Sin productos en esta sucursal.</span>
+                </div>
+
+                <table *ngIf="branch.products.length > 0" class="products-table">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Stock</th>
+                      <th>Estado</th>
+                      <th class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let prod of branch.products">
+                      <td>
+                        <div class="product-name-cell">
+                          <strong>{{ prod.name }}</strong>
+                          <button class="btn-icon-xs" title="Editar nombre" (click)="openEditProductName(branch.id, prod)">
+                            ✏️
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <strong class="stock-number">{{ prod.stock }}</strong>
+                      </td>
+                      <td>
+                        <span class="badge" [ngClass]="getStockBadgeClass(prod.stock)">
+                          {{ prod.stock > 50 ? 'Óptimo' : (prod.stock >= 10 ? 'Medio' : 'Crítico') }}
+                        </span>
+                      </td>
+                      <td class="text-right">
+                        <button class="btn btn-outline btn-xs" title="Modificar Stock" (click)="openEditStock(branch.id, prod)">
+                          📦 Stock
+                        </button>
+                        <button class="btn btn-danger btn-xs" title="Eliminar Producto" (click)="deleteProduct(branch.id, prod)">
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= TAB 2: REPORTE ANALÍTICO (PUNTO 7) ================= -->
+    <div *ngIf="activeTab === 'analytics'" class="analytics-container">
+      <div class="analytics-header-card">
+        <div class="analytics-info">
+          <h2>📊 Reporte Analítico: Producto con Mayor Stock por Sucursal</h2>
+          <p class="description">
+            Implementación directa del <strong>Requerimiento 7</strong>: analiza cada sucursal de la franquicia seleccionada y determina con máxima eficiencia el producto líder en existencias disponibles.
+          </p>
+        </div>
+
+        <div class="analytics-controls">
+          <label for="franchiseSelect">Franquicia a consultar:</label>
+          <select id="franchiseSelect" [(ngModel)]="analyticsFranchiseId" (change)="onAnalyticsFranchiseChange()" class="select-control">
+            <option value="" disabled>Seleccionar franquicia...</option>
+            <option *ngFor="let f of franchises" [value]="f.id">{{ f.name }}</option>
+          </select>
+          <button class="btn btn-primary" (click)="loadAnalytics()" [disabled]="!analyticsFranchiseId || loadingAnalytics">
+            {{ loadingAnalytics ? 'Consultando...' : '🔄 Actualizar Reporte' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Analytics Results Grid -->
+      <div *ngIf="topProducts.length === 0 && !loadingAnalytics" class="no-analytics-card">
+        <p>No hay sucursales o productos registrados en esta franquicia para analizar.</p>
+      </div>
+
+      <div *ngIf="topProducts.length > 0" class="top-products-grid">
+        <div *ngFor="let item of topProducts" class="top-product-card">
+          <div class="card-branch-tag">
+            <span class="branch-tag-icon">🏢</span>
+            <span>{{ item.branchName }}</span>
+          </div>
+
+          <div *ngIf="item.topProduct" class="top-product-highlight">
+            <div class="crown-badge">👑 Producto con Mayor Stock</div>
+            <h3 class="top-product-name">{{ item.topProduct.name }}</h3>
+            <div class="stock-meter-box">
+              <span class="stock-display">{{ item.topProduct.stock }}</span>
+              <span class="stock-units">unidades disponibles</span>
+            </div>
+            <div class="product-id-sub">ID: {{ item.topProduct.id }}</div>
+          </div>
+
+          <div *ngIf="!item.topProduct" class="no-product-in-branch">
+            <p>Esta sucursal aún no tiene productos registrados en inventario.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= MODALES ================= -->
+
+  <!-- Modal: Crear Franquicia -->
+  <div *ngIf="showFranchiseModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Crear Nueva Franquicia</h3>
+        <button class="close-btn" (click)="showFranchiseModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nombre de la Franquicia</label>
+        <input type="text" [(ngModel)]="newFranchiseName" placeholder="Ej: Franquicia Central" class="form-input" (keyup.enter)="createFranchise()" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showFranchiseModal = false">Cancelar</button>
+        <button class="btn btn-primary" (click)="createFranchise()" [disabled]="!newFranchiseName.trim()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Agregar Sucursal -->
+  <div *ngIf="showBranchModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Agregar Sucursal a "{{ selectedFranchise?.name }}"</h3>
+        <button class="close-btn" (click)="showBranchModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nombre de la Sucursal</label>
+        <input type="text" [(ngModel)]="newBranchName" placeholder="Ej: Sucursal Norte" class="form-input" (keyup.enter)="addBranch()" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showBranchModal = false">Cancelar</button>
+        <button class="btn btn-primary" (click)="addBranch()" [disabled]="!newBranchName.trim()">Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Agregar Producto -->
+  <div *ngIf="showProductModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Agregar Producto a "{{ selectedBranch?.name }}"</h3>
+        <button class="close-btn" (click)="showProductModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nombre del Producto</label>
+        <input type="text" [(ngModel)]="newProductName" placeholder="Ej: Café Especial" class="form-input" />
+
+        <label style="margin-top: 1rem;">Stock Inicial</label>
+        <input type="number" [(ngModel)]="newProductStock" min="0" placeholder="0" class="form-input" (keyup.enter)="addProduct()" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showProductModal = false">Cancelar</button>
+        <button class="btn btn-primary" (click)="addProduct()" [disabled]="!newProductName.trim() || newProductStock < 0">Registrar Producto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Modificar Stock -->
+  <div *ngIf="showStockModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Modificar Stock de "{{ stockEditProduct?.name }}"</h3>
+        <button class="close-btn" (click)="showStockModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="current-stock-info">Stock actual: <strong>{{ stockEditProduct?.stock }}</strong></p>
+        <label>Nuevo Stock Disponible</label>
+        <input type="number" [(ngModel)]="updatedStockValue" min="0" class="form-input" (keyup.enter)="saveStock()" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showStockModal = false">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveStock()" [disabled]="updatedStockValue < 0">Actualizar Stock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Nombre -->
+  <div *ngIf="showEditNameModal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Editar Nombre ({{ editNameType | uppercase }})</h3>
+        <button class="close-btn" (click)="showEditNameModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label>Nuevo Nombre</label>
+        <input type="text" [(ngModel)]="editNameValue" class="form-input" (keyup.enter)="saveNameEdit()" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showEditNameModal = false">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveNameEdit()" [disabled]="!editNameValue.trim()">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
